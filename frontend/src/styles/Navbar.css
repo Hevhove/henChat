@@ -1,0 +1,16 @@
+@keyframes rotateIn {
+  from {
+    transform: rotate(-90deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+.icon-rotate-in {
+  animation: rotateIn 0.2s forwards;
+}
+
+.Navbar .icon-button:hover {
+  background-color: rgba(169, 169, 169, 0.1);
+}

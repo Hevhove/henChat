@@ -1,0 +1,124 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  username String   @unique
+  nickname String
+  email    String   @unique
+  hash     String
+  status   UserStatus @default(OFFLINE)
+  @@unique([id, nickname])
+
+  // Chat
+  channels ChannelUser[]
+  messages Message[]
+  ownedChannels			Channel[] @relation("ChannelOwner")
+
+	// Friends
+	sentFriendRequests		FriendRequest[] @relation("FriendShipRequestor")
+	receivedFriendRequests	FriendRequest[] @relation("FriendShipRequestee")
+	friends					User[] @relation("Friends")
+	friendsOf				User[] @relation("Friends")
+
+  // TwoFA
+  isTwoFAEnabled			Boolean @default(false)
+  twoFASecret				  String?
+
+	// Blocks
+	blockedUsers			Blocklist[] @relation("BlockingUsers")
+	blockingUsers			Blocklist[] @relation("BlockedUsers")
+
+}
+
+model Channel {
+  id        Int      @id @default(autoincrement())
+  name      String?  @unique
+  hash      String?
+  ownerId   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  type      ChannelType
+  messages  Message[]
+  users     ChannelUser[]
+  owner     User? @relation("ChannelOwner", fields: [ownerId], references: [id])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  channelId Int
+  channel   Channel  @relation(fields: [channelId], references: [id])
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ChannelUser {
+	userId					Int
+	user					User @relation(fields: [userId], references: [id])
+	channelId				Int
+	channel					Channel @relation(fields: [channelId], references: [id])
+	isMuted					Boolean @default(false)
+	isAdmin					Boolean @default(false)
+	@@id([userId, channelId])
+	@@map("channel_users")
+}
+
+model FriendRequest {
+	id						String @unique @default(uuid())
+	createdAt				DateTime @default(now())
+	updatedAt				DateTime @updatedAt
+
+	requestorId				Int
+	requestorName			String
+	requesteeId				Int
+	requesteeName			String
+	status					  FriendReqStatus @default(PENDING) // Pending, Accepted, Rejected, Blocked
+
+	requestor				User @relation(fields: [requestorId, requestorName], references: [id, nickname], name: "FriendShipRequestor")
+	requestee				User @relation(fields: [requesteeId, requesteeName], references: [id, nickname], name: "FriendShipRequestee")
+
+	@@id([requestorId, requesteeId])
+	@@index([requestorId, requesteeId], name: "friendship_index")
+	@@map("friend_requests")
+}
+
+model Blocklist {
+	id						Int @default(autoincrement())
+	blockerId				Int
+	blocker					User @relation("BlockingUsers", fields: [blockerId], references: [id])
+	blockedId				Int
+	blocked					User @relation("BlockedUsers", fields: [blockedId], references: [id])
+	createdAt				DateTime @default(now())
+	@@id([blockerId, blockedId])
+}
+
+
+enum ChannelType {
+	PUBLIC
+	PRIVATE
+	PROTECTED
+	DM
+}
+
+enum FriendReqStatus {
+	PENDING
+	ACCEPTED
+	REJECTED
+	BLOCKED
+	CANCELLED
+}
+
+enum UserStatus {
+	OFFLINE
+	IN_GAME
+	ONLINE
+}
